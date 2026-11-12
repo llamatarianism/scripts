@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 pkill fuzzel
+pkill nsxiv
 file=$(find .* * -maxdepth 0 | fuzzel --dmenu -w 60 -l 5 -p " > ")
 
 while :

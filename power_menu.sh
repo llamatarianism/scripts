@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 pkill fuzzel
+pkill nsxiv
 choice=$(printf "Lock\nLogout\nReboot\nShutdown" | fuzzel --dmenu -p "󰐥 > " -l 4)
 
 are_you_sure () {

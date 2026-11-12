@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+pkill fuzzel
 pkill nsxiv
 wallpath=$(nsxiv -to "${WALLPAPER_DIR:-$HOME/Pictures/Wallpapers}")
 
