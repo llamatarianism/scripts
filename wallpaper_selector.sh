@@ -10,7 +10,7 @@ if [[ $wallpath =~ [[:space:]] ]]; then
 elif [[ -n $wallpath ]]; then
     pid=$(pgrep swaybg)
     echo $pid
-    swaybg -i $wallpath &
+    swaybg -i $wallpath -m fill &
     sleep 1
     if [[ -n $pid ]]; then
         kill $pid

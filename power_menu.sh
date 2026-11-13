@@ -4,7 +4,7 @@ pkill nsxiv
 choice=$(printf "Lock\nLogout\nReboot\nShutdown" | fuzzel --dmenu -p "󰐥 > " -l 4)
 
 are_you_sure () {
-    confirm=$(printf "Yes\nNo" | fuzzel --dmenu -p "$1 > " -l 2)
+    confirm=$(printf "Yes\nNo" | fuzzel --dmenu -p "$1? > " -l 2)
     case $confirm in
         Yes)
             return
@@ -33,7 +33,7 @@ case $choice in
         ;;
     Shutdown)
         are_you_sure $choice
-        shutdown
+        shutdown now
         ;;
     "")
         exit 0
