@@ -1,46 +1,59 @@
 #!/usr/bin/env bash
 
-cache_file="${XDG_RUNTIME_DIR:-/tmp}/bw-fuzzel-cache"
-
-unlock_vault () {
-    password="$(fuzzel --dmenu --password='·' --prompt-only ' > ')" || return 1
-    key="$(printf '%s\n' "$password" | bw unlock --raw)"
-    unset password
-    if [[ -z "$key" ]]; then
-        notify-send "Bitwarden" "Failed to unlock vault."
-        return 1
-    fi
-    printf '%s' "$key"
-}
+port=8087
+api="http://127.0.0.1:$port"
 
 pkill fuzzel
 pkill nsxiv
 
-BW_SESSION="$(secret-tool lookup bitwarden sessionkey)"
-
-if [[ -z "$BW_SESSION" ]]; then
-    BW_SESSION="$(unlock_vault)" || exit 0
-    printf "%s" "$BW_SESSION" | secret-tool store \
-        --collection=/org/freedesktop/secrets/collection/session \
-        --label='Bitwarden session key' bitwarden sessionkey
+if ! curl -sf "$api/status" >/dev/null 2>&1; then
+    nohup bw serve --hostname 127.0.0.1 --port "$port" >/dev/null 2>&1 &
+    started=false
+    for _ in {1..30}; do
+        if curl -sf "$api/status" >/dev/null 2>&1; then
+            started=true
+            break
+        fi
+        sleep 0.1
+    done
+    if [[ "$started" != "true" ]]; then
+        notify-send "Bitwarden" "Failed to start bw serve."
+        exit 1
+    fi
 fi
 
-if [[ ! -s "$cache_file" ]]; then
-    names="$(bw list items --session "$BW_SESSION" | jq -r '.[] | select(.type ==1) | .name')"
-    [[ -z "$names" ]] && exit 1
-    (
-        umask 077
-        printf '%s\n' "$names" > "$cache_file"
-    )
-else
-    names="$(< "$cache_file")"
+status="$(curl -sf "$api/status" | jq -r '.data.template.status')"
+
+if [[ "$status" != "unlocked" ]]; then
+    
+    master_pass="$(fuzzel --dmenu --password='·' --prompt-only ' > ')" || exit 0
+    [[ -z "$master_pass" ]] && exit 0
+
+    res="$(jq -nc --arg pw "$master_pass" '{password: $pw}' | \
+        curl -s -X POST "$api/unlock" -H "Content-Type: application/json" -d @-)"
+
+    unset master_pass
+
+    if [[ "$(jq -r '.success // false' <<< "$res")" != "true" ]]; then
+        notify-send "Bitwarden" "Failed to unlock vault."
+        exit 1
+    fi
 fi
 
-choice="$(printf '%s\n' "$names" | fuzzel --dmenu --prompt ' > ' )" || exit 0
-password="$(bw get password "$choice" --session "$BW_SESSION")"
+mapfile -t entries < <(
+    curl -sf "$api/list/object/items" | jq -r '
+        .data.data[] | select(.type == 1 and (.login.password // "") != "")
+        | "\(.name) (\(.login.username // "no user"))\t\(.id)"
+    '
+)
+
+idx="$(printf '%s\n' "${entries[@]%%$'\t'*}" | fuzzel --dmenu --index --prompt ' > ')" || exit 0
+item_id="${entries[$idx]#*$'\t'}"
+
+password="$(curl -sf "$api/object/password/$item_id" | jq -r '.data.data // empty')"
 
 if [[ -n "$password" ]]; then
-    wl-copy --paste-once <<< "$password"
+    printf -- '%s' "$password" | wl-copy --paste-once
     unset password
     notify-send "Bitwarden" "Copied password to clipboard."
 else
