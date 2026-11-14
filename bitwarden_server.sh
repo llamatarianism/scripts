@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 port=8087
 api="http://127.0.0.1:$port"
 
-pkill fuzzel
-pkill nsxiv
+pkill fuzzel 2>/dev/null || true
+pkill nsxiv 2>/dev/null || true
 
 if ! curl -sf "$api/status" >/dev/null 2>&1; then
     nohup bw serve --hostname 127.0.0.1 --port "$port" >/dev/null 2>&1 &
@@ -56,6 +57,11 @@ if [[ -n "$password" ]]; then
     printf -- '%s' "$password" | wl-copy --paste-once
     unset password
     notify-send "Bitwarden" "Copied password to clipboard."
+
+    (
+        sleep 60
+        wl-copy --clear 2>/dev/null || true
+    ) &
 else
     notify-send "Bitwarden" "Failed to retrieve password."
     exit 1
