@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
+cache_file="${XDG_RUNTIME_DIR:-/tmp}/bw-fuzzel-cache"
+
 unlock_vault () {
-    password="$(fuzzel --dmenu --password='·' --prompt-only ' > ')" 
-    key="$(printf '%s\n' "$password" | bw unlock --raw)" 
+    password="$(fuzzel --dmenu --password='·' --prompt-only ' > ')" || return 1
+    key="$(printf '%s\n' "$password" | bw unlock --raw)"
     unset password
     if [[ -z "$key" ]]; then
         notify-send "Bitwarden" "Failed to unlock vault."
@@ -23,10 +25,19 @@ if [[ -z "$BW_SESSION" ]]; then
         --label='Bitwarden session key' bitwarden sessionkey
 fi
 
-items="$(bw list items --session "$BW_SESSION" | jq '.[] | select(.type == 1)')"
-names="$(printf '%s' "$items" | jq -r '.name')"
+if [[ ! -s "$cache_file" ]]; then
+    names="$(bw list items --session "$BW_SESSION" | jq -r '.[] | select(.type ==1) | .name')"
+    [[ -z "$names" ]] && exit 1
+    (
+        umask 077
+        printf '%s\n' "$names" > "$cache_file"
+    )
+else
+    names="$(< "$cache_file")"
+fi
+
 choice="$(printf '%s\n' "$names" | fuzzel --dmenu --prompt ' > ' )" || exit 0
-password=$(printf '%s' "$items" | jq -r --arg name "$choice" 'select(.name == $name) | .login .password')
+password="$(bw get password "$choice" --session "$BW_SESSION")"
 
 if [[ -n "$password" ]]; then
     wl-copy --paste-once <<< "$password"
