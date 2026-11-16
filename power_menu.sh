@@ -20,7 +20,6 @@ are_you_sure () {
 
 case $choice in
     Lock)
-        are_you_sure $choice
         swaylock
         ;;
     Logout)

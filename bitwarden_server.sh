@@ -48,7 +48,7 @@ mapfile -t entries < <(
     '
 )
 
-idx="$(printf '%s\n' "${entries[@]%%$'\t'*}" | fuzzel --dmenu --index --prompt ' > ')" || exit 0
+idx="$(printf '%s\n' "${entries[@]%%$'\t'*}" | fuzzel --dmenu --index --prompt ' > ' -w 80)" || exit 0
 item_id="${entries[$idx]#*$'\t'}"
 
 password="$(curl -sf "$api/object/password/$item_id" | jq -r '.data.data // empty')"
